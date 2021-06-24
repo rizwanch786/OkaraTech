@@ -13,7 +13,17 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+
 from django.contrib import admin
+# make some changing on admin pannel
+admin.site.site_header="Okara Tech Admin"
+admin.site.site_title="Okara Tech Admin Panel"
+admin.site.index_title="Welcome to Okara Tech Admin Panel"
+
+
+
+
+
 from django.urls import path,include
 from . import views
 from django.conf import settings
@@ -22,5 +32,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     # path("", views.index, name="index"),
     path("", include('home.urls')),
-    path("blog/", include('blog.urls')),
+    path("blog/", include('blog.urls'))
 ] + static(settings.MEDIA_URL, document_root = settings.MEDIA_ROOT)
