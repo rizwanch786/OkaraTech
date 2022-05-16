@@ -56,8 +56,10 @@ class TokenInfo(collections.namedtuple('TokenInfo', 'type string start end line'
             return self.type
 
 def group(*choices): return '(' + '|'.join(choices) + ')'
-def any(*choices): return group(*choices) + '*'
-def maybe(*choices): return group(*choices) + '?'
+def any(*choices):
+    return f'{group(*choices)}*'
+def maybe(*choices):
+    return f'{group(*choices)}?'
 
 # Note: we use unicode matching for names ("\w") but ascii matching for
 # number literals.
@@ -74,9 +76,9 @@ Intnumber = group(Hexnumber, Binnumber, Octnumber, Decnumber)
 Exponent = r'[eE][-+]?[0-9](?:_?[0-9])*'
 Pointfloat = group(r'[0-9](?:_?[0-9])*\.(?:[0-9](?:_?[0-9])*)?',
                    r'\.[0-9](?:_?[0-9])*') + maybe(Exponent)
-Expfloat = r'[0-9](?:_?[0-9])*' + Exponent
+Expfloat = f'[0-9](?:_?[0-9])*{Exponent}'
 Floatnumber = group(Pointfloat, Expfloat)
-Imagnumber = group(r'[0-9](?:_?[0-9])*[jJ]', Floatnumber + r'[jJ]')
+Imagnumber = group(r'[0-9](?:_?[0-9])*[jJ]', f'{Floatnumber}[jJ]')
 Number = group(Imagnumber, Floatnumber, Intnumber)
 
 # Return the empty string, plus all of the valid string prefixes.
@@ -170,14 +172,14 @@ class Untokenizer:
     def add_whitespace(self, start):
         row, col = start
         if row < self.prev_row or row == self.prev_row and col < self.prev_col:
-            raise ValueError("start ({},{}) precedes previous end ({},{})"
-                             .format(row, col, self.prev_row, self.prev_col))
-        row_offset = row - self.prev_row
-        if row_offset:
+            raise ValueError(
+                f"start ({row},{col}) precedes previous end ({self.prev_row},{self.prev_col})"
+            )
+
+        if row_offset := row - self.prev_row:
             self.tokens.append("\\\n" * row_offset)
             self.prev_col = 0
-        col_offset = col - self.prev_col
-        if col_offset:
+        if col_offset := col - self.prev_col:
             self.tokens.append(" " * col_offset)
 
     def untokenize(self, iterable):
@@ -235,7 +237,7 @@ class Untokenizer:
             # Insert a space between two consecutive strings
             if toknum == STRING:
                 if prevstring:
-                    tokval = ' ' + tokval
+                    tokval = f' {tokval}'
                 prevstring = True
             else:
                 prevstring = False
@@ -440,7 +442,7 @@ def _tokenize(readline, encoding):
         yield TokenInfo(ENCODING, encoding, (0, 0), (0, 0), '')
     last_line = b''
     line = b''
-    while True:                                # loop over lines in stream
+    while True:                            # loop over lines in stream
         try:
             # We capture the value of the line variable here because
             # readline uses the empty string '' to signal end of input,
@@ -456,11 +458,10 @@ def _tokenize(readline, encoding):
         lnum += 1
         pos, max = 0, len(line)
 
-        if contstr:                            # continued string
+        if contstr:                    # continued string
             if not line:
                 raise TokenError("EOF in multi-line string", strstart)
-            endmatch = endprog.match(line)
-            if endmatch:
+            if endmatch := endprog.match(line):
                 pos = end = endmatch.end(0)
                 yield TokenInfo(STRING, contstr + line[:end],
                        strstart, (lnum, end), contline + line)
@@ -516,14 +517,13 @@ def _tokenize(readline, encoding):
 
                 yield TokenInfo(DEDENT, '', (lnum, pos), (lnum, pos), line)
 
-        else:                                  # continued statement
-            if not line:
-                raise TokenError("EOF in multi-line statement", (lnum, 0))
+        elif line:
             continued = 0
 
+        else:
+            raise TokenError("EOF in multi-line statement", (lnum, 0))
         while pos < max:
-            pseudomatch = _compile(PseudoToken).match(line, pos)
-            if pseudomatch:                                # scan for tokens
+            if pseudomatch := _compile(PseudoToken).match(line, pos):
                 start, end = pseudomatch.span(1)
                 spos, epos, pos = (lnum, start), (lnum, end), end
                 if start == end:
@@ -545,8 +545,7 @@ def _tokenize(readline, encoding):
 
                 elif token in triple_quoted:
                     endprog = _compile(endpats[token])
-                    endmatch = endprog.match(line, pos)
-                    if endmatch:                           # all on one line
+                    if endmatch := endprog.match(line, pos):
                         pos = endmatch.end(0)
                         token = line[start:pos]
                         yield TokenInfo(STRING, token, spos, (lnum, pos), line)
@@ -556,16 +555,6 @@ def _tokenize(readline, encoding):
                         contline = line
                         break
 
-                # Check up to the first 3 chars of the token to see if
-                #  they're in the single_quoted set. If so, they start
-                #  a string.
-                # We're using the first 3, because we're looking for
-                #  "rb'" (for example) at the start of the token. If
-                #  we switch to longer prefixes, this needs to be
-                #  adjusted.
-                # Note that initial == token[:1].
-                # Also note that single quote checking must come after
-                #  triple quote checking (above).
                 elif (initial in single_quoted or
                       token[:2] in single_quoted or
                       token[:3] in single_quoted):
@@ -604,7 +593,7 @@ def _tokenize(readline, encoding):
     # Add an implicit NEWLINE if the input doesn't end in one
     if last_line and last_line[-1] not in '\r\n':
         yield TokenInfo(NEWLINE, '', (lnum - 1, len(last_line)), (lnum - 1, len(last_line) + 1), '')
-    for indent in indents[1:]:                 # pop remaining indent levels
+    for _ in indents[1:]:
         yield TokenInfo(DEDENT, '', (lnum, 0), (lnum, 0), '')
     yield TokenInfo(ENDMARKER, '', (lnum, 0), (lnum, 0), '')
 
@@ -630,9 +619,9 @@ def main():
             args = (filename,) + location + (message,)
             perror("%s:%d:%d: error: %s" % args)
         elif filename:
-            perror("%s: error: %s" % (filename, message))
+            perror(f"{filename}: error: {message}")
         else:
-            perror("error: %s" % message)
+            perror(f"error: {message}")
         sys.exit(1)
 
     # Parse the arguments and options

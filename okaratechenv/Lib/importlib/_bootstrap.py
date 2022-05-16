@@ -223,7 +223,7 @@ def _verbose_message(message, *args, verbosity=1):
     """Print the message to stderr if -v/PYTHONVERBOSE is turned on."""
     if sys.flags.verbose >= verbosity:
         if not message.startswith(('#', 'import ')):
-            message = '# ' + message
+            message = f'# {message}'
         print(message.format(*args), file=sys.stderr)
 
 
@@ -257,12 +257,11 @@ def _load_module_shim(self, fullname):
 
     """
     spec = spec_from_loader(fullname, self)
-    if fullname in sys.modules:
-        module = sys.modules[fullname]
-        _exec(spec, module)
-        return sys.modules[fullname]
-    else:
+    if fullname not in sys.modules:
         return _load(spec)
+    module = sys.modules[fullname]
+    _exec(spec, module)
+    return sys.modules[fullname]
 
 # Module specifications #######################################################
 
@@ -357,9 +356,8 @@ class ModuleSpec:
         if self.origin is not None:
             args.append('origin={!r}'.format(self.origin))
         if self.submodule_search_locations is not None:
-            args.append('submodule_search_locations={}'
-                        .format(self.submodule_search_locations))
-        return '{}({})'.format(self.__class__.__name__, ', '.join(args))
+            args.append(f'submodule_search_locations={self.submodule_search_locations}')
+        return f"{self.__class__.__name__}({', '.join(args)})"
 
     def __eq__(self, other):
         smsl = self.submodule_search_locations
@@ -375,11 +373,10 @@ class ModuleSpec:
 
     @property
     def cached(self):
-        if self._cached is None:
-            if self.origin is not None and self._set_fileattr:
-                if _bootstrap_external is None:
-                    raise NotImplementedError
-                self._cached = _bootstrap_external._get_cached(self.origin)
+        if self._cached is None and self.origin is not None and self._set_fileattr:
+            if _bootstrap_external is None:
+                raise NotImplementedError
+            self._cached = _bootstrap_external._get_cached(self.origin)
         return self._cached
 
     @cached.setter
@@ -468,7 +465,7 @@ def _spec_from_module(module, loader=None, origin=None):
         submodule_search_locations = None
 
     spec = ModuleSpec(name, loader, origin=origin)
-    spec._set_fileattr = False if location is None else True
+    spec._set_fileattr = location is not None
     spec.cached = cached
     spec.submodule_search_locations = submodule_search_locations
     return spec
@@ -486,27 +483,25 @@ def _init_module_attrs(spec, module, *, override=False):
     # __loader__
     if override or getattr(module, '__loader__', None) is None:
         loader = spec.loader
-        if loader is None:
-            # A backward compatibility hack.
-            if spec.submodule_search_locations is not None:
-                if _bootstrap_external is None:
-                    raise NotImplementedError
-                _NamespaceLoader = _bootstrap_external._NamespaceLoader
+        if loader is None and spec.submodule_search_locations is not None:
+            if _bootstrap_external is None:
+                raise NotImplementedError
+            _NamespaceLoader = _bootstrap_external._NamespaceLoader
 
-                loader = _NamespaceLoader.__new__(_NamespaceLoader)
-                loader._path = spec.submodule_search_locations
-                spec.loader = loader
-                # While the docs say that module.__file__ is not set for
-                # built-in modules, and the code below will avoid setting it if
-                # spec.has_location is false, this is incorrect for namespace
-                # packages.  Namespace packages have no location, but their
-                # __spec__.origin is None, and thus their module.__file__
-                # should also be None for consistency.  While a bit of a hack,
-                # this is the best place to ensure this consistency.
-                #
-                # See # https://docs.python.org/3/library/importlib.html#importlib.abc.Loader.load_module
-                # and bpo-32305
-                module.__file__ = None
+            loader = _NamespaceLoader.__new__(_NamespaceLoader)
+            loader._path = spec.submodule_search_locations
+            spec.loader = loader
+            # While the docs say that module.__file__ is not set for
+            # built-in modules, and the code below will avoid setting it if
+            # spec.has_location is false, this is incorrect for namespace
+            # packages.  Namespace packages have no location, but their
+            # __spec__.origin is None, and thus their module.__file__
+            # should also be None for consistency.  While a bit of a hack,
+            # this is the best place to ensure this consistency.
+            #
+            # See # https://docs.python.org/3/library/importlib.html#importlib.abc.Loader.load_module
+            # and bpo-32305
+            module.__file__ = None
         try:
             module.__loader__ = loader
         except AttributeError:
@@ -523,12 +518,13 @@ def _init_module_attrs(spec, module, *, override=False):
     except AttributeError:
         pass
     # __path__
-    if override or getattr(module, '__path__', None) is None:
-        if spec.submodule_search_locations is not None:
-            try:
-                module.__path__ = spec.submodule_search_locations
-            except AttributeError:
-                pass
+    if (
+        override or getattr(module, '__path__', None) is None
+    ) and spec.submodule_search_locations is not None:
+        try:
+            module.__path__ = spec.submodule_search_locations
+        except AttributeError:
+            pass
     # __file__/__cached__
     if spec.has_location:
         if override or getattr(module, '__file__', None) is None:
@@ -537,12 +533,13 @@ def _init_module_attrs(spec, module, *, override=False):
             except AttributeError:
                 pass
 
-        if override or getattr(module, '__cached__', None) is None:
-            if spec.cached is not None:
-                try:
-                    module.__cached__ = spec.cached
-                except AttributeError:
-                    pass
+        if (
+            override or getattr(module, '__cached__', None) is None
+        ) and spec.cached is not None:
+            try:
+                module.__cached__ = spec.cached
+            except AttributeError:
+                pass
     return module
 
 
@@ -567,16 +564,17 @@ def _module_repr_from_spec(spec):
     """Return the repr to use for the module."""
     # We mostly replicate _module_repr() using the spec attributes.
     name = '?' if spec.name is None else spec.name
-    if spec.origin is None:
-        if spec.loader is None:
-            return '<module {!r}>'.format(name)
-        else:
-            return '<module {!r} ({!r})>'.format(name, spec.loader)
+    if spec.origin is not None:
+        return (
+            '<module {!r} from {!r}>'.format(name, spec.origin)
+            if spec.has_location
+            else '<module {!r} ({})>'.format(spec.name, spec.origin)
+        )
+
+    if spec.loader is None:
+        return '<module {!r}>'.format(name)
     else:
-        if spec.has_location:
-            return '<module {!r} from {!r}>'.format(name, spec.origin)
-        else:
-            return '<module {!r} ({})>'.format(spec.name, spec.origin)
+        return '<module {!r} ({!r})>'.format(name, spec.loader)
 
 
 # Used by importlib.reload() and _load_module_shim().
@@ -649,10 +647,8 @@ def _load_backward_compatible(spec):
 
 def _load_unlocked(spec):
     # A helper for direct use by the import system.
-    if spec.loader is not None:
-        # Not a namespace package.
-        if not hasattr(spec.loader, 'exec_module'):
-            return _load_backward_compatible(spec)
+    if spec.loader is not None and not hasattr(spec.loader, 'exec_module'):
+        return _load_backward_compatible(spec)
 
     module = module_from_spec(spec)
 
@@ -744,7 +740,7 @@ class BuiltinImporter:
         return spec.loader if spec is not None else None
 
     @classmethod
-    def create_module(self, spec):
+    def create_module(cls, spec):
         """Create a built-in module"""
         if spec.name not in sys.builtin_module_names:
             raise ImportError('{!r} is not a built-in module'.format(spec.name),
@@ -752,7 +748,7 @@ class BuiltinImporter:
         return _call_with_frames_removed(_imp.create_builtin, spec)
 
     @classmethod
-    def exec_module(self, module):
+    def exec_module(cls, module):
         """Exec a built-in module"""
         _call_with_frames_removed(_imp.exec_builtin, module)
 
@@ -875,7 +871,7 @@ def _resolve_name(name, package, level):
     if len(bits) < level:
         raise ValueError('attempted relative import beyond top-level package')
     base = bits[0]
-    return '{}.{}'.format(base, name) if name else base
+    return f'{base}.{name}' if name else base
 
 
 def _find_spec_legacy(finder, name, path):
@@ -913,31 +909,25 @@ def _find_spec(name, path, target=None):
             else:
                 spec = find_spec(name, path, target)
         if spec is not None:
-            # The parent import may have already imported this module.
-            if not is_reload and name in sys.modules:
-                module = sys.modules[name]
-                try:
-                    __spec__ = module.__spec__
-                except AttributeError:
-                    # We use the found spec since that is the one that
-                    # we would have used if the parent module hadn't
-                    # beaten us to the punch.
-                    return spec
-                else:
-                    if __spec__ is None:
-                        return spec
-                    else:
-                        return __spec__
-            else:
+            if is_reload or name not in sys.modules:
                 return spec
-    else:
-        return None
+            module = sys.modules[name]
+            try:
+                __spec__ = module.__spec__
+            except AttributeError:
+                # We use the found spec since that is the one that
+                # we would have used if the parent module hadn't
+                # beaten us to the punch.
+                return spec
+            else:
+                return spec if __spec__ is None else __spec__
+    return None
 
 
 def _sanity_check(name, package, level):
     """Verify arguments are "sane"."""
     if not isinstance(name, str):
-        raise TypeError('module name must be str, not {}'.format(type(name)))
+        raise TypeError(f'module name must be str, not {type(name)}')
     if level < 0:
         raise ValueError('level must be >= 0')
     if level > 0:
@@ -991,8 +981,7 @@ def _find_and_load(name, import_):
             return _find_and_load_unlocked(name, import_)
 
     if module is None:
-        message = ('import of {} halted; '
-                   'None in sys.modules'.format(name))
+        message = f'import of {name} halted; None in sys.modules'
         raise ModuleNotFoundError(message, name=name)
 
     _lock_unlock_module(name)
@@ -1026,10 +1015,7 @@ def _handle_fromlist(module, fromlist, import_, *, recursive=False):
     # If a package was imported, try to import stuff from fromlist.
     for x in fromlist:
         if not isinstance(x, str):
-            if recursive:
-                where = module.__name__ + '.__all__'
-            else:
-                where = "``from list''"
+            where = f'{module.__name__}.__all__' if recursive else "``from list''"
             raise TypeError(f"Item in {where} must be str, "
                             f"not {type(x).__name__}")
         elif x == '*':
@@ -1037,7 +1023,7 @@ def _handle_fromlist(module, fromlist, import_, *, recursive=False):
                 _handle_fromlist(module, module.__all__, import_,
                                  recursive=True)
         elif not hasattr(module, x):
-            from_name = '{}.{}'.format(module.__name__, x)
+            from_name = f'{module.__name__}.{x}'
             try:
                 _call_with_frames_removed(import_, from_name)
             except ModuleNotFoundError as exc:
@@ -1118,7 +1104,7 @@ def __import__(name, globals=None, locals=None, fromlist=(), level=0):
 def _builtin_from_name(name):
     spec = BuiltinImporter.find_spec(name)
     if spec is None:
-        raise ImportError('no built-in module named ' + name)
+        raise ImportError(f'no built-in module named {name}')
     return _load_unlocked(spec)
 
 

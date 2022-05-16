@@ -40,10 +40,7 @@ class error(Exception):
         self.pos = pos
         if pattern is not None and pos is not None:
             msg = '%s at position %d' % (msg, pos)
-            if isinstance(pattern, str):
-                newline = '\n'
-            else:
-                newline = b'\n'
+            newline = '\n' if isinstance(pattern, str) else b'\n'
             self.lineno = pattern.count(newline, 0, pos) + 1
             self.colno = pos - pattern.rfind(newline, 0, pos)
             if newline in pattern:

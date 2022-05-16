@@ -129,7 +129,7 @@ class FileHash:
         self.mode, _, self.value = spec.partition('=')
 
     def __repr__(self):
-        return '<FileHash mode: {} value: {}>'.format(self.mode, self.value)
+        return f'<FileHash mode: {self.mode} value: {self.value}>'
 
 
 class Distribution:
@@ -165,8 +165,7 @@ class Distribution:
             dist = next(dists, None)
             if dist is not None:
                 return dist
-        else:
-            raise PackageNotFoundError(name)
+        raise PackageNotFoundError(name)
 
     @classmethod
     def discover(cls, **kwargs):
@@ -295,9 +294,8 @@ class Distribution:
     def _read_sections(lines):
         section = None
         for line in filter(None, lines):
-            section_match = re.match(r'\[(.*)\]$', line)
-            if section_match:
-                section = section_match.group(1)
+            if section_match := re.match(r'\[(.*)\]$', line):
+                section = section_match[1]
                 continue
             yield locals()
 

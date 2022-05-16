@@ -396,7 +396,7 @@ class Random(_random.Random):
             if weights is None:
                 _int = int
                 n += 0.0    # convert to float for a small speed improvement
-                return [population[_int(random() * n)] for i in _repeat(None, k)]
+                return [population[_int(random() * n)] for _ in _repeat(None, k)]
             cum_weights = list(_accumulate(weights))
         elif weights is not None:
             raise TypeError('Cannot specify both weights and cumulative weights')
@@ -405,8 +405,10 @@ class Random(_random.Random):
         bisect = _bisect
         total = cum_weights[-1] + 0.0   # convert to float
         hi = n - 1
-        return [population[bisect(cum_weights, random() * total, 0, hi)]
-                for i in _repeat(None, k)]
+        return [
+            population[bisect(cum_weights, random() * total, 0, hi)]
+            for _ in _repeat(None, k)
+        ]
 
 ## -------------------- real-valued distributions  -------------------
 
@@ -535,12 +537,7 @@ class Random(_random.Random):
         q = 1.0 / r
         f = (q + z) / (1.0 + q * z)
         u3 = random()
-        if u3 > 0.5:
-            theta = (mu + _acos(f)) % TWOPI
-        else:
-            theta = (mu - _acos(f)) % TWOPI
-
-        return theta
+        return (mu + _acos(f)) % TWOPI if u3 > 0.5 else (mu - _acos(f)) % TWOPI
 
 ## -------------------- gamma distribution --------------------
 
@@ -599,15 +596,14 @@ class Random(_random.Random):
                 u = random()
                 b = (_e + alpha)/_e
                 p = b*u
-                if p <= 1.0:
-                    x = p ** (1.0/alpha)
-                else:
-                    x = -_log((b-p)/alpha)
+                x = p ** (1.0/alpha) if p <= 1.0 else -_log((b-p)/alpha)
                 u1 = random()
-                if p > 1.0:
-                    if u1 <= x ** (alpha - 1.0):
-                        break
-                elif u1 <= _exp(-x):
+                if (
+                    p > 1.0
+                    and u1 <= x ** (alpha - 1.0)
+                    or p <= 1.0
+                    and u1 <= _exp(-x)
+                ):
                     break
             return x * beta
 
@@ -677,10 +673,7 @@ class Random(_random.Random):
         # This version due to Janne Sinkkonen, and matches all the std
         # texts (e.g., Knuth Vol 2 Ed 3 pg 134 "the beta distribution").
         y = self.gammavariate(alpha, 1.0)
-        if y == 0:
-            return 0.0
-        else:
-            return y / (y + self.gammavariate(beta, 1.0))
+        return 0.0 if y == 0 else y / (y + self.gammavariate(beta, 1.0))
 
 ## -------------------- Pareto --------------------
 
@@ -745,7 +738,7 @@ def _test_generator(n, func, args):
     smallest = 1e10
     largest = -1e10
     t0 = time.perf_counter()
-    for i in range(n):
+    for _ in range(n):
         x = func(*args)
         total += x
         sqsum = sqsum + x*x

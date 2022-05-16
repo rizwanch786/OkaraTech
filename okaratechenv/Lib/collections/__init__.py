@@ -260,9 +260,11 @@ class OrderedDict(dict):
     @_recursive_repr()
     def __repr__(self):
         'od.__repr__() <==> repr(od)'
-        if not self:
-            return '%s()' % (self.__class__.__name__,)
-        return '%s(%r)' % (self.__class__.__name__, list(self.items()))
+        return (
+            '%s(%r)' % (self.__class__.__name__, list(self.items()))
+            if self
+            else f'{self.__class__.__name__}()'
+        )
 
     def __reduce__(self):
         'Return state information for pickling'
@@ -679,7 +681,7 @@ class Counter(dict):
 
     def __repr__(self):
         if not self:
-            return '%s()' % self.__class__.__name__
+            return f'{self.__class__.__name__}()'
         try:
             items = ', '.join(map('%r: %r'.__mod__, self.most_common()))
             return '%s({%s})' % (self.__class__.__name__, items)
@@ -792,7 +794,7 @@ class Counter(dict):
 
     def _keep_positive(self):
         '''Internal method to strip elements with a negative or zero count'''
-        nonpositive = [elem for elem, count in self.items() if not count > 0]
+        nonpositive = [elem for elem, count in self.items() if count <= 0]
         for elem in nonpositive:
             del self[elem]
         return self
@@ -899,7 +901,7 @@ class ChainMap(_collections_abc.MutableMapping):
     def __iter__(self):
         d = {}
         for mapping in reversed(self.maps):
-            d.update(mapping)                   # reuses stored hash values if possible
+            d |= mapping
         return iter(d)
 
     def __contains__(self, key):
@@ -1068,10 +1070,7 @@ class UserList(_collections_abc.MutableSequence):
     def __contains__(self, item): return item in self.data
     def __len__(self): return len(self.data)
     def __getitem__(self, i):
-        if isinstance(i, slice):
-            return self.__class__(self.data[i])
-        else:
-            return self.data[i]
+        return self.__class__(self.data[i]) if isinstance(i, slice) else self.data[i]
     def __setitem__(self, i, item): self.data[i] = item
     def __delitem__(self, i): del self.data[i]
     def __add__(self, other):

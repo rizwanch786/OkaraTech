@@ -168,10 +168,7 @@ class RegexFlag(enum.IntFlag):
             members.append(hex(value))
         res = '|'.join(members)
         if negative:
-            if len(members) > 1:
-                res = f'~({res})'
-            else:
-                res = f'~{res}'
+            res = f'~({res})' if len(members) > 1 else f'~{res}'
         return res
     __str__ = object.__str__
 
@@ -271,9 +268,8 @@ def escape(pattern):
     """
     if isinstance(pattern, str):
         return pattern.translate(_special_chars_map)
-    else:
-        pattern = str(pattern, 'latin1')
-        return pattern.translate(_special_chars_map).encode('latin1')
+    pattern = str(pattern, 'latin1')
+    return pattern.translate(_special_chars_map).encode('latin1')
 
 Pattern = type(sre_compile.compile('', 0))
 Match = type(sre_compile.compile('', 0).match(''))

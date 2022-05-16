@@ -167,9 +167,11 @@ class WeakSet:
         return self.data > set(map(ref, other))
 
     def __eq__(self, other):
-        if not isinstance(other, self.__class__):
-            return NotImplemented
-        return self.data == set(map(ref, other))
+        return (
+            self.data == set(map(ref, other))
+            if isinstance(other, self.__class__)
+            else NotImplemented
+        )
 
     def symmetric_difference(self, other):
         newset = self.copy()

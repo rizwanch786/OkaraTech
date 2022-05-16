@@ -195,11 +195,7 @@ class WeakValueDictionary(_collections_abc.MutableMapping):
             return default
         else:
             o = wr()
-            if o is None:
-                # This should only happen
-                return default
-            else:
-                return o
+            return default if o is None else o
 
     def items(self):
         if self._pending_removals:
@@ -260,26 +256,24 @@ class WeakValueDictionary(_collections_abc.MutableMapping):
             o = self.data.pop(key)()
         except KeyError:
             o = None
-        if o is None:
-            if args:
-                return args[0]
-            else:
-                raise KeyError(key)
-        else:
+        if o is not None:
             return o
+        if args:
+            return args[0]
+        else:
+            raise KeyError(key)
 
     def setdefault(self, key, default=None):
         try:
             o = self.data[key]()
         except KeyError:
             o = None
-        if o is None:
-            if self._pending_removals:
-                self._commit_removals()
-            self.data[key] = KeyedRef(default, self._remove, key)
-            return default
-        else:
+        if o is not None:
             return o
+        if self._pending_removals:
+            self._commit_removals()
+        self.data[key] = KeyedRef(default, self._remove, key)
+        return default
 
     def update(self, other=None, /, **kwargs):
         if self._pending_removals:
@@ -320,8 +314,8 @@ class KeyedRef(ref):
 
     __slots__ = "key",
 
-    def __new__(type, ob, callback, key):
-        self = ref.__new__(type, ob, callback)
+    def __new__(cls, ob, callback, key):
+        self = ref.__new__(cls, ob, callback)
         self.key = key
         return self
 
@@ -525,9 +519,9 @@ class finalize:
                 raise TypeError('finalize expected at least 2 positional '
                                 'arguments, got %d' % (len(args)-1))
             func = kwargs.pop('func')
+            import warnings
             if len(args) >= 2:
                 self, obj, *args = args
-                import warnings
                 warnings.warn("Passing 'func' as keyword argument is deprecated",
                               DeprecationWarning, stacklevel=2)
             else:
@@ -536,7 +530,6 @@ class finalize:
                                     'arguments, got %d' % (len(args)-1))
                 obj = kwargs.pop('obj')
                 self, *args = args
-                import warnings
                 warnings.warn("Passing 'obj' as keyword argument is deprecated",
                               DeprecationWarning, stacklevel=2)
         args = tuple(args)
@@ -594,8 +587,7 @@ class finalize:
 
     @atexit.setter
     def atexit(self, value):
-        info = self._registry.get(self)
-        if info:
+        if info := self._registry.get(self):
             info.atexit = bool(value)
 
     def __repr__(self):

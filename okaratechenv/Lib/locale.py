@@ -214,8 +214,8 @@ def format_string(f, val, grouping=False, monetary=False):
     percents = list(_percent_re.finditer(f))
     new_f = _percent_re.sub('%s', f)
 
+    new_val = []
     if isinstance(val, _collections_abc.Mapping):
-        new_val = []
         for perc in percents:
             if perc.group()[-1]=='%':
                 new_val.append('%')
@@ -224,7 +224,6 @@ def format_string(f, val, grouping=False, monetary=False):
     else:
         if not isinstance(val, tuple):
             val = (val,)
-        new_val = []
         i = 0
         for perc in percents:
             if perc.group()[-1]=='%':
@@ -269,7 +268,7 @@ def currency(val, symbol=True, grouping=False, international=False):
 
     s = _format('%%.%if' % digits, abs(val), grouping, monetary=True)
     # '<' and '>' are markers if the sign must be inserted between symbol and value
-    s = '<' + s + '>'
+    s = f'<{s}>'
 
     if symbol:
         smb = conv[international and 'int_curr_symbol' or 'currency_symbol']
@@ -285,7 +284,7 @@ def currency(val, symbol=True, grouping=False, international=False):
     sign = conv[val<0 and 'negative_sign' or 'positive_sign']
 
     if sign_pos == 0:
-        s = '(' + s + ')'
+        s = f'({s})'
     elif sign_pos == 1:
         s = sign + s
     elif sign_pos == 2:
@@ -310,14 +309,10 @@ def delocalize(string):
 
     conv = localeconv()
 
-    #First, get rid of the grouping
-    ts = conv['thousands_sep']
-    if ts:
+    if ts := conv['thousands_sep']:
         string = string.replace(ts, '')
 
-    #next, replace the decimal point with a dot
-    dd = conv['decimal_point']
-    if dd:
+    if dd := conv['decimal_point']:
         string = string.replace(dd, '.')
     return string
 
@@ -348,10 +343,7 @@ def _test():
 _setlocale = setlocale
 
 def _replace_encoding(code, encoding):
-    if '.' in code:
-        langname = code[:code.index('.')]
-    else:
-        langname = code
+    langname = code[:code.index('.')] if '.' in code else code
     # Convert the encoding to a C lib compatible encoding string
     norm_encoding = encodings.normalize_encoding(encoding)
     #print('norm encoding: %r' % norm_encoding)
@@ -368,18 +360,18 @@ def _replace_encoding(code, encoding):
         if norm_encoding in locale_encoding_alias:
             encoding = locale_encoding_alias[norm_encoding]
     #print('found encoding %r' % encoding)
-    return langname + '.' + encoding
+    return f'{langname}.{encoding}'
 
 def _append_modifier(code, modifier):
     if modifier == 'euro':
         if '.' not in code:
-            return code + '.ISO8859-15'
+            return f'{code}.ISO8859-15'
         _, _, encoding = code.partition('.')
         if encoding in ('ISO8859-15', 'UTF-8'):
             return code
         if encoding == 'ISO8859-1':
             return _replace_encoding(code, 'ISO8859-15')
-    return code + '@' + modifier
+    return f'{code}@{modifier}'
 
 def normalize(localename):
 
@@ -417,10 +409,10 @@ def normalize(localename):
     if encoding:
         norm_encoding = encoding.replace('-', '')
         norm_encoding = norm_encoding.replace('_', '')
-        lang_enc += '.' + norm_encoding
+        lang_enc += f'.{norm_encoding}'
     lookup_name = lang_enc
     if modifier:
-        lookup_name += '@' + modifier
+        lookup_name += f'@{modifier}'
     code = locale_alias.get(lookup_name, None)
     if code is not None:
         return code
@@ -441,14 +433,14 @@ def normalize(localename):
         # Third try: langname (without encoding, possibly with modifier)
         lookup_name = langname
         if modifier:
-            lookup_name += '@' + modifier
+            lookup_name += f'@{modifier}'
         code = locale_alias.get(lookup_name, None)
         if code is not None:
             #print('lookup without encoding succeeded')
             if '@' not in code:
                 return _replace_encoding(code, encoding)
             code, modifier = code.split('@', 1)
-            return _replace_encoding(code, encoding) + '@' + modifier
+            return f'{_replace_encoding(code, encoding)}@{modifier}'
 
         if modifier:
             # Fourth try: langname (without encoding and modifier)
@@ -460,7 +452,7 @@ def normalize(localename):
                     return _append_modifier(code, modifier)
                 code, defmod = code.split('@', 1)
                 if defmod.lower() == modifier:
-                    return _replace_encoding(code, encoding) + '@' + defmod
+                    return f'{_replace_encoding(code, encoding)}@{defmod}'
 
     return localename
 
@@ -496,7 +488,7 @@ def _parse_localename(localename):
         # On macOS "LC_CTYPE=UTF-8" is a valid locale setting
         # for getting UTF-8 handling for text.
         return None, 'UTF-8'
-    raise ValueError('unknown locale: %s' % localename)
+    raise ValueError(f'unknown locale: {localename}')
 
 def _build_localename(localetuple):
 
@@ -511,10 +503,7 @@ def _build_localename(localetuple):
 
         if language is None:
             language = 'C'
-        if encoding is None:
-            return language
-        else:
-            return language + '.' + encoding
+        return language if encoding is None else f'{language}.{encoding}'
     except (TypeError, ValueError):
         raise TypeError('Locale must be None, a string, or an iterable of '
                         'two strings -- language code, encoding.') from None

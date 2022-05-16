@@ -13,12 +13,12 @@ sace_prefix = "xn--"
 # This assumes query strings, so AllowUnassigned is true
 def nameprep(label):
     # Map
-    newlabel = []
-    for c in label:
-        if stringprep.in_table_b1(c):
-            # Map to nothing
-            continue
-        newlabel.append(stringprep.map_table_b2(c))
+    newlabel = [
+        stringprep.map_table_b2(c)
+        for c in label
+        if not stringprep.in_table_b1(c)
+    ]
+
     label = "".join(newlabel)
 
     # Normalize
@@ -148,7 +148,7 @@ class Codec(codecs.Codec):
 
         if errors != 'strict':
             # IDNA is quite clear that implementations must be strict
-            raise UnicodeError("unsupported error handling "+errors)
+            raise UnicodeError(f"unsupported error handling {errors}")
 
         if not input:
             return b'', 0
@@ -184,7 +184,7 @@ class Codec(codecs.Codec):
     def decode(self, input, errors='strict'):
 
         if errors != 'strict':
-            raise UnicodeError("Unsupported error handling "+errors)
+            raise UnicodeError(f"Unsupported error handling {errors}")
 
         if not input:
             return "", 0
@@ -209,17 +209,14 @@ class Codec(codecs.Codec):
         else:
             trailing_dot = ''
 
-        result = []
-        for label in labels:
-            result.append(ToUnicode(label))
-
+        result = [ToUnicode(label) for label in labels]
         return ".".join(result)+trailing_dot, len(input)
 
 class IncrementalEncoder(codecs.BufferedIncrementalEncoder):
     def _buffer_encode(self, input, errors, final):
         if errors != 'strict':
             # IDNA is quite clear that implementations must be strict
-            raise UnicodeError("unsupported error handling "+errors)
+            raise UnicodeError(f"unsupported error handling {errors}")
 
         if not input:
             return (b'', 0)
@@ -253,7 +250,7 @@ class IncrementalEncoder(codecs.BufferedIncrementalEncoder):
 class IncrementalDecoder(codecs.BufferedIncrementalDecoder):
     def _buffer_decode(self, input, errors, final):
         if errors != 'strict':
-            raise UnicodeError("Unsupported error handling "+errors)
+            raise UnicodeError(f"Unsupported error handling {errors}")
 
         if not input:
             return ("", 0)

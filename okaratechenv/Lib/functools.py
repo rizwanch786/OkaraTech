@@ -548,8 +548,7 @@ def _lru_cache_wrapper(user_function, maxsize, typed, _CacheInfo):
             # No caching -- just a statistics update
             nonlocal misses
             misses += 1
-            result = user_function(*args, **kwds)
-            return result
+            return user_function(*args, **kwds)
 
     elif maxsize is None:
 
@@ -697,23 +696,25 @@ def _c3_mro(cls, abcs=None):
     resulting MRO, their ordering depends on the order of types in *abcs*.
 
     """
-    for i, base in enumerate(reversed(cls.__bases__)):
-        if hasattr(base, '__abstractmethods__'):
-            boundary = len(cls.__bases__) - i
-            break   # Bases up to the last explicit ABC are considered first.
-    else:
-        boundary = 0
-    abcs = list(abcs) if abcs else []
+    boundary = next(
+        (
+            len(cls.__bases__) - i
+            for i, base in enumerate(reversed(cls.__bases__))
+            if hasattr(base, '__abstractmethods__')
+        ),
+        0,
+    )
+
     explicit_bases = list(cls.__bases__[:boundary])
-    abstract_bases = []
     other_bases = list(cls.__bases__[boundary:])
-    for base in abcs:
-        if issubclass(cls, base) and not any(
-                issubclass(b, base) for b in cls.__bases__
-            ):
-            # If *cls* is the class that introduces behaviour described by
-            # an ABC *base*, insert said ABC to its MRO.
-            abstract_bases.append(base)
+    abcs = list(abcs) if abcs else []
+    abstract_bases = [
+        base
+        for base in abcs
+        if issubclass(cls, base)
+        and not any(issubclass(b, base) for b in cls.__bases__)
+    ]
+
     for base in abstract_bases:
         abcs.remove(base)
     explicit_c3_mros = [_c3_mro(base, abcs=abcs) for base in explicit_bases]
@@ -741,10 +742,7 @@ def _compose_mro(cls, types):
     # Remove entries which are strict bases of other entries (they will end up
     # in the MRO anyway.
     def is_strict_base(typ):
-        for other in types:
-            if typ != other and typ in other.__mro__:
-                return True
-        return False
+        return any(typ != other and typ in other.__mro__ for other in types)
     types = [n for n in types if not is_strict_base(n)]
     # Subclasses of the ABCs in *types* which are also implemented by
     # *cls* can be used to stabilize ABC ordering.
@@ -785,8 +783,7 @@ def _find_impl(cls, registry):
             if (t in registry and t not in cls.__mro__
                               and match not in cls.__mro__
                               and not issubclass(match, t)):
-                raise RuntimeError("Ambiguous dispatch: {} or {}".format(
-                    match, t))
+                raise RuntimeError(f"Ambiguous dispatch: {match} or {t}")
             break
         if t in registry:
             match = t

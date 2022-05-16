@@ -74,16 +74,14 @@ class Completer:
             self.namespace = __main__.__dict__
 
         if not text.strip():
-            if state == 0:
-                if _readline_available:
-                    readline.insert_text('\t')
-                    readline.redisplay()
-                    return ''
-                else:
-                    return '\t'
-            else:
+            if state != 0:
                 return None
 
+            if not _readline_available:
+                return '\t'
+            readline.insert_text('\t')
+            readline.redisplay()
+            return ''
         if state == 0:
             if "." in text:
                 self.matches = self.attr_matches(text)
@@ -96,7 +94,7 @@ class Completer:
 
     def _callable_postfix(self, val, word):
         if callable(val):
-            word = word + "("
+            word = f"{word}("
         return word
 
     def global_matches(self, text):
@@ -114,11 +112,11 @@ class Completer:
             if word[:n] == text:
                 seen.add(word)
                 if word in {'finally', 'try'}:
-                    word = word + ':'
+                    word = f'{word}:'
                 elif word not in {'False', 'None', 'True',
                                   'break', 'continue', 'pass',
                                   'else'}:
-                    word = word + ' '
+                    word = f'{word} '
                 matches.append(word)
         for nspace in [self.namespace, builtins.__dict__]:
             for word, val in nspace.items():
@@ -168,7 +166,7 @@ class Completer:
             for word in words:
                 if (word[:n] == attr and
                     not (noprefix and word[:n+1] == noprefix)):
-                    match = "%s.%s" % (expr, word)
+                    match = f"{expr}.{word}"
                     try:
                         val = getattr(thisobject, word)
                     except Exception:
@@ -178,10 +176,7 @@ class Completer:
                     matches.append(match)
             if matches or not noprefix:
                 break
-            if noprefix == '_':
-                noprefix = '__'
-            else:
-                noprefix = None
+            noprefix = '__' if noprefix == '_' else None
         matches.sort()
         return matches
 
