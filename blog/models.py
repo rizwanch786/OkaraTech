@@ -11,7 +11,7 @@ class Post(models.Model):
     content=models.TextField()
     image = models.ImageField(upload_to = 'blog/images', default = "")
     def __str__(self):
-        return self.title + " by " + self.author
+        return f"{self.title} by {self.author}"
 
 
 from django.utils.timezone import now

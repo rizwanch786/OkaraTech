@@ -21,10 +21,10 @@ def _showwarnmsg_impl(msg):
     file = msg.file
     if file is None:
         file = sys.stderr
-        if file is None:
-            # sys.stderr is None when run with pythonw.exe:
-            # warnings get lost
-            return
+    if file is None:
+        # sys.stderr is None when run with pythonw.exe:
+        # warnings get lost
+        return
     text = _formatwarnmsg(msg)
     try:
         file.write(text)
@@ -151,15 +151,8 @@ def filterwarnings(action, message="", category=Warning, module="", lineno=0,
     if message or module:
         import re
 
-    if message:
-        message = re.compile(message, re.I)
-    else:
-        message = None
-    if module:
-        module = re.compile(module)
-    else:
-        module = None
-
+    message = re.compile(message, re.I) if message else None
+    module = re.compile(module) if module else None
     _add_filter(action, message, category, module, lineno, append=append)
 
 def simplefilter(action, category=Warning, lineno=0, append=False):
@@ -187,9 +180,8 @@ def _add_filter(*item, append):
         except ValueError:
             pass
         filters.insert(0, item)
-    else:
-        if item not in filters:
-            filters.append(item)
+    elif item not in filters:
+        filters.append(item)
     _filters_mutated()
 
 def resetwarnings():
@@ -224,7 +216,7 @@ def _setoption(arg):
     category = _getcategory(category)
     module = re.escape(module)
     if module:
-        module = module + '$'
+        module = f'{module}$'
     if lineno:
         try:
             lineno = int(lineno)
@@ -308,7 +300,7 @@ def warn(message, category=None, stacklevel=1, source=None):
         else:
             frame = sys._getframe(1)
             # Look for one frame less since the above line starts us off.
-            for x in range(stacklevel-1):
+            for _ in range(stacklevel-1):
                 frame = _next_external_frame(frame)
                 if frame is None:
                     raise ValueError
@@ -320,10 +312,7 @@ def warn(message, category=None, stacklevel=1, source=None):
         globals = frame.f_globals
         filename = frame.f_code.co_filename
         lineno = frame.f_lineno
-    if '__name__' in globals:
-        module = globals['__name__']
-    else:
-        module = "<string>"
+    module = globals['__name__'] if '__name__' in globals else "<string>"
     registry = globals.setdefault("__warningregistry__", {})
     warn_explicit(message, category, filename, lineno, module, registry,
                   globals, source)
@@ -457,7 +446,7 @@ class catch_warnings(object):
         if self._module is not sys.modules['warnings']:
             args.append("module=%r" % self._module)
         name = type(self).__name__
-        return "%s(%s)" % (name, ", ".join(args))
+        return f'{name}({", ".join(args)})'
 
     def __enter__(self):
         if self._entered:
@@ -540,14 +529,12 @@ except ImportError:
 
 # Module initialization
 _processoptions(sys.warnoptions)
-if not _warnings_defaults:
-    # Several warning categories are ignored by default in regular builds
-    if not hasattr(sys, 'gettotalrefcount'):
-        filterwarnings("default", category=DeprecationWarning,
-                       module="__main__", append=1)
-        simplefilter("ignore", category=DeprecationWarning, append=1)
-        simplefilter("ignore", category=PendingDeprecationWarning, append=1)
-        simplefilter("ignore", category=ImportWarning, append=1)
-        simplefilter("ignore", category=ResourceWarning, append=1)
+if not _warnings_defaults and not hasattr(sys, 'gettotalrefcount'):
+    filterwarnings("default", category=DeprecationWarning,
+                   module="__main__", append=1)
+    simplefilter("ignore", category=DeprecationWarning, append=1)
+    simplefilter("ignore", category=PendingDeprecationWarning, append=1)
+    simplefilter("ignore", category=ImportWarning, append=1)
+    simplefilter("ignore", category=ResourceWarning, append=1)
 
 del _warnings_defaults

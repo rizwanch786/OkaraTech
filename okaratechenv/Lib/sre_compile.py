@@ -89,14 +89,16 @@ def _compile(code, pattern, flags):
             tolower = _sre.ascii_tolower
     for op, av in pattern:
         if op in LITERAL_CODES:
-            if not flags & SRE_FLAG_IGNORECASE:
+            if (
+                not flags & SRE_FLAG_IGNORECASE
+                or flags & SRE_FLAG_IGNORECASE
+                and not flags & SRE_FLAG_LOCALE
+                and not iscased(av)
+            ):
                 emit(op)
                 emit(av)
             elif flags & SRE_FLAG_LOCALE:
                 emit(OP_LOCALE_IGNORE[op])
-                emit(av)
-            elif not iscased(av):
-                emit(op)
                 emit(av)
             else:
                 lo = tolower(av)
@@ -503,9 +505,7 @@ def _get_charset_prefix(pattern, flags):
 
     iscased = _get_iscased(flags)
     if op is LITERAL:
-        if iscased and iscased(av):
-            return None
-        return [(op, av)]
+        return None if iscased and iscased(av) else [(op, av)]
     elif op is BRANCH:
         charset = []
         charsetappend = charset.append
@@ -513,7 +513,7 @@ def _get_charset_prefix(pattern, flags):
             if not p:
                 return None
             op, av = p[0]
-            if op is LITERAL and not (iscased and iscased(av)):
+            if op is LITERAL and (not iscased or not iscased(av)):
                 charsetappend((op, av))
             else:
                 return None
@@ -611,7 +611,7 @@ def _code(p, flags):
     return code
 
 def _hex_code(code):
-    return '[%s]' % ', '.join('%#0*x' % (_sre.CODESIZE*2+2, x) for x in code)
+    return f"[{', '.join(('%#0*x' % (_sre.CODESIZE*2+2, x) for x in code))}]"
 
 def dis(code):
     import sys

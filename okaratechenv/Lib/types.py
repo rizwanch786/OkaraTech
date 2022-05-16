@@ -90,9 +90,8 @@ def resolve_bases(bases):
         updated = True
         if not isinstance(new_base, tuple):
             raise TypeError("__mro_entries__ must return a tuple")
-        else:
-            new_bases[i+shift:i+shift+1] = new_base
-            shift += len(new_base) - 1
+        new_bases[i+shift:i+shift+1] = new_base
+        shift += len(new_base) - 1
     if not updated:
         return bases
     return tuple(new_bases)
@@ -108,17 +107,11 @@ def prepare_class(name, bases=(), kwds=None):
     'metaclass' entry removed. If no kwds argument is passed in, this will
     be an empty dict.
     """
-    if kwds is None:
-        kwds = {}
-    else:
-        kwds = dict(kwds) # Don't alter the provided mapping
+    kwds = {} if kwds is None else dict(kwds)
     if 'metaclass' in kwds:
         meta = kwds.pop('metaclass')
     else:
-        if bases:
-            meta = type(bases[0])
-        else:
-            meta = type
+        meta = type(bases[0]) if bases else type
     if isinstance(meta, type):
         # when meta is a type, we first determine the most-derived metaclass
         # instead of invoking the initial candidate directly
@@ -166,7 +159,7 @@ class DynamicClassAttribute:
         self.__doc__ = doc or fget.__doc__
         self.overwrite_doc = doc is None
         # support for abstract methods
-        self.__isabstractmethod__ = bool(getattr(fget, '__isabstractmethod__', False))
+        self.__isabstractmethod__ = getattr(fget, '__isabstractmethod__', False)
 
     def __get__(self, instance, ownerclass=None):
         if instance is None:
@@ -236,9 +229,7 @@ class _GeneratorWrapper:
     def __next__(self):
         return next(self.__wrapped)
     def __iter__(self):
-        if self.__isgen:
-            return self.__wrapped
-        return self
+        return self.__wrapped if self.__isgen else self
     __await__ = __iter__
 
 def coroutine(func):

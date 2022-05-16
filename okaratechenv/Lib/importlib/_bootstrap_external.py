@@ -122,7 +122,7 @@ def _write_atomic(path, data, mode=0o666):
     Be prepared to handle a FileExistsError if concurrent writing of the
     temporary file is attempted."""
     # id() is used to generate a pseudo-random filename.
-    path_tmp = '{}.{}'.format(path, id(path))
+    path_tmp = f'{path}.{id(path)}'
     fd = _os.open(path_tmp,
                   _os.O_EXCL | _os.O_CREAT | _os.O_WRONLY, mode & 0o666)
     try:
@@ -322,17 +322,14 @@ def cache_from_source(path, debug_override=None, *, optimization=None):
     tag = sys.implementation.cache_tag
     if tag is None:
         raise NotImplementedError('sys.implementation.cache_tag is None')
-    almost_filename = ''.join([(base if base else rest), sep, tag])
+    almost_filename = ''.join([base or rest, sep, tag])
     if optimization is None:
-        if sys.flags.optimize == 0:
-            optimization = ''
-        else:
-            optimization = sys.flags.optimize
+        optimization = '' if sys.flags.optimize == 0 else sys.flags.optimize
     optimization = str(optimization)
     if optimization != '':
         if not optimization.isalnum():
             raise ValueError('{!r} is not alphanumeric'.format(optimization))
-        almost_filename = '{}.{}{}'.format(almost_filename, _OPT, optimization)
+        almost_filename = f'{almost_filename}.{_OPT}{optimization}'
     filename = almost_filename + BYTECODE_SUFFIXES[0]
     if sys.pycache_prefix is not None:
         # We need an absolute path to the py file to avoid the possibility of
@@ -457,8 +454,7 @@ def _check_name(method):
         if name is None:
             name = self.name
         elif self.name != name:
-            raise ImportError('loader for %s cannot handle %s' %
-                                (self.name, name), name=name)
+            raise ImportError(f'loader for {self.name} cannot handle {name}', name=name)
         return method(self, name, *args, **kwargs)
     try:
         _wrap = _bootstrap._wrap
@@ -578,14 +574,13 @@ def _validate_hash_pyc(data, source_hash, name, exc_details):
 def _compile_bytecode(data, name=None, bytecode_path=None, source_path=None):
     """Compile bytecode as found in a pyc."""
     code = marshal.loads(data)
-    if isinstance(code, _code_type):
-        _bootstrap._verbose_message('code object from {!r}', bytecode_path)
-        if source_path is not None:
-            _imp._fix_co_filename(code, source_path)
-        return code
-    else:
+    if not isinstance(code, _code_type):
         raise ImportError('Non-code object in {!r}'.format(bytecode_path),
                           name=name, path=bytecode_path)
+    _bootstrap._verbose_message('code object from {!r}', bytecode_path)
+    if source_path is not None:
+        _imp._fix_co_filename(code, source_path)
+    return code
 
 
 def _code_to_timestamp_pyc(code, mtime=0, source_size=0):
@@ -684,10 +679,9 @@ def spec_from_file_location(name, location=None, *, loader=None,
                     spec.submodule_search_locations = []
     else:
         spec.submodule_search_locations = submodule_search_locations
-    if spec.submodule_search_locations == []:
-        if location:
-            dirname = _path_split(location)[0]
-            spec.submodule_search_locations.append(dirname)
+    if spec.submodule_search_locations == [] and location:
+        dirname = _path_split(location)[0]
+        spec.submodule_search_locations.append(dirname)
 
     return spec
 
@@ -715,10 +709,7 @@ class WindowsRegistryFinder:
 
     @classmethod
     def _search_registry(cls, fullname):
-        if cls.DEBUG_BUILD:
-            registry_key = cls.REGISTRY_KEY_DEBUG
-        else:
-            registry_key = cls.REGISTRY_KEY
+        registry_key = cls.REGISTRY_KEY_DEBUG if cls.DEBUG_BUILD else cls.REGISTRY_KEY
         key = registry_key.format(fullname=fullname,
                                   sys_version='%d.%d' % sys.version_info[:2])
         try:
@@ -739,10 +730,9 @@ class WindowsRegistryFinder:
             return None
         for loader, suffixes in _get_supported_file_loaders():
             if filepath.endswith(tuple(suffixes)):
-                spec = _bootstrap.spec_from_loader(fullname,
-                                                   loader(fullname, filepath),
-                                                   origin=filepath)
-                return spec
+                return _bootstrap.spec_from_loader(
+                    fullname, loader(fullname, filepath), origin=filepath
+                )
 
     @classmethod
     def find_module(cls, fullname, path=None):
@@ -752,10 +742,7 @@ class WindowsRegistryFinder:
 
         """
         spec = cls.find_spec(fullname, path)
-        if spec is not None:
-            return spec.loader
-        else:
-            return None
+        return spec.loader if spec is not None else None
 
 
 class _LoaderBasics:
@@ -979,9 +966,7 @@ class FileLoader:
 
     @_check_name
     def get_resource_reader(self, module):
-        if self.is_package(module):
-            return self
-        return None
+        return self if self.is_package(module) else None
 
     def open_resource(self, resource):
         path = _path_join(_path_split(self.path)[0], resource)
@@ -990,8 +975,7 @@ class FileLoader:
     def resource_path(self, resource):
         if not self.is_resource(resource):
             raise FileNotFoundError
-        path = _path_join(_path_split(self.path)[0], resource)
-        return path
+        return _path_join(_path_split(self.path)[0], resource)
 
     def is_resource(self, name):
         if path_sep in name:
@@ -1113,8 +1097,7 @@ class ExtensionFileLoader(FileLoader, _LoaderBasics):
     def is_package(self, fullname):
         """Return True if the extension module is a package."""
         file_name = _path_split(self.path)[1]
-        return any(file_name == '__init__' + suffix
-                   for suffix in EXTENSION_SUFFIXES)
+        return any(file_name == f'__init__{suffix}' for suffix in EXTENSION_SUFFIXES)
 
     def get_code(self, fullname):
         """Return None as an extension module cannot create a code object."""
@@ -1164,9 +1147,12 @@ class _NamespacePath:
             spec = self._path_finder(self._name, parent_path)
             # Note that no changes are made if a loader is returned, but we
             #  do remember the new parent path
-            if spec is not None and spec.loader is None:
-                if spec.submodule_search_locations:
-                    self._path = spec.submodule_search_locations
+            if (
+                spec is not None
+                and spec.loader is None
+                and spec.submodule_search_locations
+            ):
+                self._path = spec.submodule_search_locations
             self._last_parent_path = parent_path     # Save the copy
         return self._path
 
@@ -1259,8 +1245,7 @@ class PathFinder:
                 return hook(path)
             except ImportError:
                 continue
-        else:
-            return None
+        return None
 
     @classmethod
     def _path_importer_cache(cls, path):
@@ -1326,10 +1311,9 @@ class PathFinder:
                 #  create a namespace package, and continue iterating
                 #  on path.
                 namespace_path.extend(portions)
-        else:
-            spec = _bootstrap.ModuleSpec(fullname, None)
-            spec.submodule_search_locations = namespace_path
-            return spec
+        spec = _bootstrap.ModuleSpec(fullname, None)
+        spec.submodule_search_locations = namespace_path
+        return spec
 
     @classmethod
     def find_spec(cls, fullname, path=None, target=None):
@@ -1343,8 +1327,7 @@ class PathFinder:
         if spec is None:
             return None
         elif spec.loader is None:
-            namespace_path = spec.submodule_search_locations
-            if namespace_path:
+            if namespace_path := spec.submodule_search_locations:
                 # We found at least one namespace path.  Return a spec which
                 # can create the namespace package.
                 spec.origin = None
@@ -1453,22 +1436,20 @@ class FileFinder:
         if cache_module in cache:
             base_path = _path_join(self.path, tail_module)
             for suffix, loader_class in self._loaders:
-                init_filename = '__init__' + suffix
+                init_filename = f'__init__{suffix}'
                 full_path = _path_join(base_path, init_filename)
                 if _path_isfile(full_path):
                     return self._get_spec(loader_class, fullname, full_path, [base_path], target)
-            else:
-                # If a namespace package, return the path if we don't
-                #  find a module in the next section.
-                is_namespace = _path_isdir(base_path)
+            # If a namespace package, return the path if we don't
+            #  find a module in the next section.
+            is_namespace = _path_isdir(base_path)
         # Check for a file w/ a proper suffix exists.
         for suffix, loader_class in self._loaders:
             full_path = _path_join(self.path, tail_module + suffix)
             _bootstrap._verbose_message('trying {}', full_path, verbosity=2)
-            if cache_module + suffix in cache:
-                if _path_isfile(full_path):
-                    return self._get_spec(loader_class, fullname, full_path,
-                                          None, target)
+            if cache_module + suffix in cache and _path_isfile(full_path):
+                return self._get_spec(loader_class, fullname, full_path,
+                                      None, target)
         if is_namespace:
             _bootstrap._verbose_message('possible namespace for {}', base_path)
             spec = _bootstrap.ModuleSpec(fullname, None)
@@ -1498,10 +1479,7 @@ class FileFinder:
             lower_suffix_contents = set()
             for item in contents:
                 name, dot, suffix = item.partition('.')
-                if dot:
-                    new_name = '{}.{}'.format(name, suffix.lower())
-                else:
-                    new_name = name
+                new_name = f'{name}.{suffix.lower()}' if dot else name
                 lower_suffix_contents.add(new_name)
             self._path_cache = lower_suffix_contents
         if sys.platform.startswith(_CASE_INSENSITIVE_PLATFORMS):

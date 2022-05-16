@@ -32,10 +32,7 @@ __all__ = ["normcase","isabs","join","splitdrive","split","splitext",
            "samefile", "sameopenfile", "samestat", "commonpath"]
 
 def _get_bothseps(path):
-    if isinstance(path, bytes):
-        return b'\\/'
-    else:
-        return '\\/'
+    return b'\\/' if isinstance(path, bytes) else '\\/'
 
 # Normalize the case of a pathname and map slashes to backslashes.
 # Other normalizations (such as optimizing '../' away) are not done
@@ -143,7 +140,7 @@ def splitdrive(p):
             altsep = '/'
             colon = ':'
         normp = p.replace(altsep, sep)
-        if (normp[0:2] == sep*2) and (normp[2:3] != sep):
+        if normp[:2] == sep * 2 and normp[2:3] != sep:
             # is a UNC path:
             # vvvvvvvvvvvvvvvvvvvv drive letter or UNC path
             # \\machine\mountpoint\directory\etc\...
@@ -283,10 +280,7 @@ def expanduser(path):
 
     If user or $HOME is unknown, do nothing."""
     path = os.fspath(path)
-    if isinstance(path, bytes):
-        tilde = b'~'
-    else:
-        tilde = '~'
+    tilde = b'~' if isinstance(path, bytes) else '~'
     if not path.startswith(tilde):
         return path
     i, n = 1, len(path)
@@ -295,7 +289,7 @@ def expanduser(path):
 
     if 'USERPROFILE' in os.environ:
         userhome = os.environ['USERPROFILE']
-    elif not 'HOMEPATH' in os.environ:
+    elif 'HOMEPATH' not in os.environ:
         return path
     else:
         try:
@@ -498,10 +492,7 @@ def _abspath_fallback(path):
 
     path = os.fspath(path)
     if not isabs(path):
-        if isinstance(path, bytes):
-            cwd = os.getcwdb()
-        else:
-            cwd = os.getcwd()
+        cwd = os.getcwdb() if isinstance(path, bytes) else os.getcwd()
         path = join(cwd, path)
     return normpath(path)
 
@@ -719,14 +710,14 @@ def commonpath(paths):
         split_paths = [p.split(sep) for d, p in drivesplits]
 
         try:
-            isabs, = set(p[:1] == sep for d, p in drivesplits)
+            isabs, = {p[:1] == sep for d, p in drivesplits}
         except ValueError:
             raise ValueError("Can't mix absolute and relative paths") from None
 
         # Check that all drive letters or UNC paths match. The check is made only
         # now otherwise type errors for mixing strings and bytes would not be
         # caught.
-        if len(set(d for d, p in drivesplits)) != 1:
+        if len({d for d, p in drivesplits}) != 1:
             raise ValueError("Paths don't have the same drive")
 
         drive, path = splitdrive(paths[0].replace(altsep, sep))

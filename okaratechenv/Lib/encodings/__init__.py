@@ -95,8 +95,7 @@ def search_function(encoding):
         try:
             # Import is absolute to prevent the possibly malicious import of a
             # module with side-effects that is not in the 'encodings' package.
-            mod = __import__('encodings.' + modname, fromlist=_import_tail,
-                             level=0)
+            mod = __import__(f'encodings.{modname}', fromlist=_import_tail, level=0)
         except ImportError:
             # ImportError may occur because 'encodings.(modname)' does not exist,
             # or because it imports a name that does not exist (see mbcs and oem)
@@ -158,7 +157,7 @@ if sys.platform == 'win32':
     def _alias_mbcs(encoding):
         try:
             import _winapi
-            ansi_code_page = "cp%s" % _winapi.GetACP()
+            ansi_code_page = f"cp{_winapi.GetACP()}"
             if encoding == ansi_code_page:
                 import encodings.mbcs
                 return encodings.mbcs.getregentry()

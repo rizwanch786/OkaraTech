@@ -56,7 +56,7 @@ def not_(a):
 
 def truth(a):
     "Return True if a is true, False otherwise."
-    return True if a else False
+    return bool(a)
 
 def is_(a, b):
     "Same as a is b."
@@ -156,11 +156,7 @@ def contains(a, b):
 
 def countOf(a, b):
     "Return the number of times b occurs in a."
-    count = 0
-    for i in a:
-        if i == b:
-            count += 1
-    return count
+    return sum(i == b for i in a)
 
 def delitem(a, b):
     "Same as del a[b]."
@@ -175,8 +171,7 @@ def indexOf(a, b):
     for i, j in enumerate(a):
         if j == b:
             return i
-    else:
-        raise ValueError('sequence.index(x): x not in sequence')
+    raise ValueError('sequence.index(x): x not in sequence')
 
 def setitem(a, b, c):
     "Same as a[b] = c."
@@ -213,8 +208,7 @@ def length_hint(obj, default=0):
     if val is NotImplemented:
         return default
     if not isinstance(val, int):
-        msg = ('__length_hint__ must be integer, not %s' %
-               type(val).__name__)
+        msg = f'__length_hint__ must be integer, not {type(val).__name__}'
         raise TypeError(msg)
     if val < 0:
         msg = '__length_hint__() should return >= 0'
@@ -255,9 +249,7 @@ class attrgetter:
         return self._call(obj)
 
     def __repr__(self):
-        return '%s.%s(%s)' % (self.__class__.__module__,
-                              self.__class__.__qualname__,
-                              ', '.join(map(repr, self._attrs)))
+        return f"{self.__class__.__module__}.{self.__class__.__qualname__}({', '.join(map(repr, self._attrs))})"
 
     def __reduce__(self):
         return self.__class__, self._attrs
@@ -286,9 +278,7 @@ class itemgetter:
         return self._call(obj)
 
     def __repr__(self):
-        return '%s.%s(%s)' % (self.__class__.__module__,
-                              self.__class__.__name__,
-                              ', '.join(map(repr, self._items)))
+        return f"{self.__class__.__module__}.{self.__class__.__name__}({', '.join(map(repr, self._items))})"
 
     def __reduce__(self):
         return self.__class__, self._items
@@ -316,16 +306,13 @@ class methodcaller:
         args = [repr(self._name)]
         args.extend(map(repr, self._args))
         args.extend('%s=%r' % (k, v) for k, v in self._kwargs.items())
-        return '%s.%s(%s)' % (self.__class__.__module__,
-                              self.__class__.__name__,
-                              ', '.join(args))
+        return f"{self.__class__.__module__}.{self.__class__.__name__}({', '.join(args)})"
 
     def __reduce__(self):
         if not self._kwargs:
             return self.__class__, (self._name,) + self._args
-        else:
-            from functools import partial
-            return partial(self.__class__, self._name, **self._kwargs), self._args
+        from functools import partial
+        return partial(self.__class__, self._name, **self._kwargs), self._args
 
 
 # In-place Operations *********************************************************#

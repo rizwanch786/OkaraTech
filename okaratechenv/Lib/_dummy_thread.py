@@ -49,9 +49,6 @@ def start_new_thread(function, args, kwargs={}):
         function(*args, **kwargs)
     except SystemExit:
         pass
-    except:
-        import traceback
-        traceback.print_exc()
     _main = True
     global _interrupt
     if _interrupt:
@@ -110,18 +107,20 @@ class LockType(object):
         aren't triggered and throw a little fit.
 
         """
-        if waitflag is None or waitflag:
+        if (
+            waitflag is not None
+            and not waitflag
+            and not self.locked_status
+            or waitflag is None
+            or waitflag
+        ):
             self.locked_status = True
             return True
         else:
-            if not self.locked_status:
-                self.locked_status = True
-                return True
-            else:
-                if timeout > 0:
-                    import time
-                    time.sleep(timeout)
-                return False
+            if timeout > 0:
+                import time
+                time.sleep(timeout)
+            return False
 
     __enter__ = acquire
 
@@ -141,12 +140,7 @@ class LockType(object):
         return self.locked_status
 
     def __repr__(self):
-        return "<%s %s.%s object at %s>" % (
-            "locked" if self.locked_status else "unlocked",
-            self.__class__.__module__,
-            self.__class__.__qualname__,
-            hex(id(self))
-        )
+        return f'<{"locked" if self.locked_status else "unlocked"} {self.__class__.__module__}.{self.__class__.__qualname__} object at {hex(id(self))}>'
 
 
 class RLock(LockType):
@@ -188,6 +182,5 @@ def interrupt_main():
     KeyboardInterrupt upon exiting."""
     if _main:
         raise KeyboardInterrupt
-    else:
-        global _interrupt
-        _interrupt = True
+    global _interrupt
+    _interrupt = True

@@ -39,10 +39,7 @@ __all__ = ["normcase","isabs","join","splitdrive","split","splitext",
 
 
 def _get_sep(path):
-    if isinstance(path, bytes):
-        return b'/'
-    else:
-        return '/'
+    return b'/' if isinstance(path, bytes) else '/'
 
 # Normalize the case of a pathname.  Trivial in Posix, string.lower on Mac.
 # On MS-DOS this may also turn slashes into backslashes; however, other
@@ -195,10 +192,7 @@ def ismount(path):
         if stat.S_ISLNK(s1.st_mode):
             return False
 
-    if isinstance(path, bytes):
-        parent = join(path, b'..')
-    else:
-        parent = join(path, '..')
+    parent = join(path, b'..') if isinstance(path, bytes) else join(path, '..')
     parent = realpath(parent)
     try:
         s2 = os.lstat(parent)
@@ -229,10 +223,7 @@ def expanduser(path):
     """Expand ~ and ~user constructions.  If user or $HOME is unknown,
     do nothing."""
     path = os.fspath(path)
-    if isinstance(path, bytes):
-        tilde = b'~'
-    else:
-        tilde = '~'
+    tilde = b'~' if isinstance(path, bytes) else '~'
     if not path.startswith(tilde):
         return path
     sep = _get_sep(path)
@@ -373,10 +364,7 @@ def abspath(path):
     """Return an absolute path."""
     path = os.fspath(path)
     if not isabs(path):
-        if isinstance(path, bytes):
-            cwd = os.getcwdb()
-        else:
-            cwd = os.getcwd()
+        cwd = os.getcwdb() if isinstance(path, bytes) else os.getcwd()
         path = join(cwd, path)
     return normpath(path)
 
@@ -462,11 +450,7 @@ def relpath(path, start=None):
         sep = '/'
         pardir = '..'
 
-    if start is None:
-        start = curdir
-    else:
-        start = os.fspath(start)
-
+    start = curdir if start is None else os.fspath(start)
     try:
         start_list = [x for x in abspath(start).split(sep) if x]
         path_list = [x for x in abspath(path).split(sep) if x]
@@ -505,7 +489,7 @@ def commonpath(paths):
         split_paths = [path.split(sep) for path in paths]
 
         try:
-            isabs, = set(p[:1] == sep for p in paths)
+            isabs, = {p[:1] == sep for p in paths}
         except ValueError:
             raise ValueError("Can't mix absolute and relative paths") from None
 

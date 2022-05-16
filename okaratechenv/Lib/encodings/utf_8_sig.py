@@ -29,12 +29,11 @@ class IncrementalEncoder(codecs.IncrementalEncoder):
         self.first = 1
 
     def encode(self, input, final=False):
-        if self.first:
-            self.first = 0
-            return codecs.BOM_UTF8 + \
-                   codecs.utf_8_encode(input, self.errors)[0]
-        else:
+        if not self.first:
             return codecs.utf_8_encode(input, self.errors)[0]
+        self.first = 0
+        return codecs.BOM_UTF8 + \
+               codecs.utf_8_encode(input, self.errors)[0]
 
     def reset(self):
         codecs.IncrementalEncoder.reset(self)

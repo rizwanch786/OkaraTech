@@ -9,9 +9,7 @@ import _locale
 
 if sys.platform.startswith("win"):
     def getpreferredencoding(do_setlocale=True):
-        if sys.flags.utf8_mode:
-            return 'UTF-8'
-        return _locale._getdefaultlocale()[1]
+        return 'UTF-8' if sys.flags.utf8_mode else _locale._getdefaultlocale()[1]
 else:
     try:
         _locale.CODESET

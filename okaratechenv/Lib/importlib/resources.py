@@ -104,13 +104,12 @@ def open_binary(package: Package, resource: Resource) -> BinaryIO:
         if hasattr(package.__spec__.loader, 'get_data'):
             with suppress(OSError):
                 data = loader.get_data(full_path)
-        if data is None:
-            package_name = package.__spec__.name
-            message = '{!r} resource not found in {!r}'.format(
-                resource, package_name)
-            raise FileNotFoundError(message)
-        else:
+        if data is not None:
             return BytesIO(data)
+        package_name = package.__spec__.name
+        message = '{!r} resource not found in {!r}'.format(
+            resource, package_name)
+        raise FileNotFoundError(message)
 
 
 def open_text(package: Package,
@@ -138,13 +137,12 @@ def open_text(package: Package,
         if hasattr(package.__spec__.loader, 'get_data'):
             with suppress(OSError):
                 data = loader.get_data(full_path)
-        if data is None:
-            package_name = package.__spec__.name
-            message = '{!r} resource not found in {!r}'.format(
-                resource, package_name)
-            raise FileNotFoundError(message)
-        else:
+        if data is not None:
             return TextIOWrapper(BytesIO(data), encoding, errors)
+        package_name = package.__spec__.name
+        message = '{!r} resource not found in {!r}'.format(
+            resource, package_name)
+        raise FileNotFoundError(message)
 
 
 def read_binary(package: Package, resource: Resource) -> bytes:
@@ -184,11 +182,9 @@ def path(package: Package, resource: Resource) -> Iterator[Path]:
     package = _get_package(package)
     reader = _get_resource_reader(package)
     if reader is not None:
-        try:
+        with suppress(FileNotFoundError):
             yield Path(reader.resource_path(resource))
             return
-        except FileNotFoundError:
-            pass
     else:
         _check_location(package)
     # Fall-through for both the lack of resource_path() *and* if
@@ -209,10 +205,8 @@ def path(package: Package, resource: Resource) -> Iterator[Path]:
             os.close(fd)
             yield Path(raw_path)
         finally:
-            try:
+            with suppress(FileNotFoundError):
                 os.remove(raw_path)
-            except FileNotFoundError:
-                pass
 
 
 def is_resource(package: Package, name: str) -> bool:

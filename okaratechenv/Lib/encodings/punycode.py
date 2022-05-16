@@ -21,11 +21,7 @@ def segregate(str):
 
 def selective_len(str, max):
     """Return the length of str, considering only characters below max."""
-    res = 0
-    for c in str:
-        if ord(c) < max:
-            res += 1
-    return res
+    return sum(ord(c) < max for c in str)
 
 def selective_find(str, char, index, pos):
     """Return a pair (index, pos), indicating the next occurrence of
@@ -97,10 +93,9 @@ def adapt(delta, first, numchars):
     # ((base - tmin) * tmax) // 2 == 455
     divisions = 0
     while delta > 455:
-        delta = delta // 35 # base - tmin
+        delta //= 35
         divisions += 36
-    bias = divisions + (36 * delta // (delta + 38))
-    return bias
+    return divisions + (36 * delta // (delta + 38))
 
 
 def generate_integers(baselen, deltas):
@@ -203,7 +198,7 @@ class Codec(codecs.Codec):
 
     def decode(self, input, errors='strict'):
         if errors not in ('strict', 'replace', 'ignore'):
-            raise UnicodeError("Unsupported error handling "+errors)
+            raise UnicodeError(f"Unsupported error handling {errors}")
         res = punycode_decode(input, errors)
         return res, len(input)
 
@@ -214,7 +209,7 @@ class IncrementalEncoder(codecs.IncrementalEncoder):
 class IncrementalDecoder(codecs.IncrementalDecoder):
     def decode(self, input, final=False):
         if self.errors not in ('strict', 'replace', 'ignore'):
-            raise UnicodeError("Unsupported error handling "+self.errors)
+            raise UnicodeError(f"Unsupported error handling {self.errors}")
         return punycode_decode(input, self.errors)
 
 class StreamWriter(Codec,codecs.StreamWriter):

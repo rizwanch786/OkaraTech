@@ -56,18 +56,17 @@ def _find_spec_from_path(name, path=None):
     """
     if name not in sys.modules:
         return _find_spec(name, path)
+    module = sys.modules[name]
+    if module is None:
+        return None
+    try:
+        spec = module.__spec__
+    except AttributeError:
+        raise ValueError(f'{name}.__spec__ is not set') from None
     else:
-        module = sys.modules[name]
-        if module is None:
-            return None
-        try:
-            spec = module.__spec__
-        except AttributeError:
-            raise ValueError('{}.__spec__ is not set'.format(name)) from None
-        else:
-            if spec is None:
-                raise ValueError('{}.__spec__ is None'.format(name))
-            return spec
+        if spec is None:
+            raise ValueError(f'{name}.__spec__ is None')
+        return spec
 
 
 def find_spec(name, package=None):
@@ -89,8 +88,7 @@ def find_spec(name, package=None):
     """
     fullname = resolve_name(name, package) if name.startswith('.') else name
     if fullname not in sys.modules:
-        parent_name = fullname.rpartition('.')[0]
-        if parent_name:
+        if parent_name := fullname.rpartition('.')[0]:
             parent = __import__(parent_name, fromlist=['__path__'])
             try:
                 parent_path = parent.__path__
@@ -108,10 +106,10 @@ def find_spec(name, package=None):
         try:
             spec = module.__spec__
         except AttributeError:
-            raise ValueError('{}.__spec__ is not set'.format(name)) from None
+            raise ValueError(f'{name}.__spec__ is not set') from None
         else:
             if spec is None:
-                raise ValueError('{}.__spec__ is None'.format(name))
+                raise ValueError(f'{name}.__spec__ is None')
             return spec
 
 
@@ -206,10 +204,7 @@ def module_for_loader(fxn):
             except (ImportError, AttributeError):
                 pass
             else:
-                if is_package:
-                    module.__package__ = fullname
-                else:
-                    module.__package__ = fullname.rpartition('.')[0]
+                module.__package__ = fullname if is_package else fullname.rpartition('.')[0]
             # If __package__ was not set above, __import__() will do it later.
             return fxn(self, module, *args, **kwargs)
 
@@ -245,11 +240,12 @@ class _LazyModule(types.ModuleType):
         self.__spec__.loader.exec_module(self)
         # If exec_module() was used directly there is no guarantee the module
         # object was put into sys.modules.
-        if original_name in sys.modules:
-            if id(self) != id(sys.modules[original_name]):
-                raise ValueError(f"module object for {original_name!r} "
-                                  "substituted in sys.modules during a lazy "
-                                  "load")
+        if original_name in sys.modules and id(self) != id(
+            sys.modules[original_name]
+        ):
+            raise ValueError(f"module object for {original_name!r} "
+                              "substituted in sys.modules during a lazy "
+                              "load")
         # Update after loading since that's what would happen in an eager
         # loading situation.
         self.__dict__.update(attrs_updated)
@@ -293,8 +289,7 @@ class LazyLoader(abc.Loader):
         # on an object would have triggered the load,
         # e.g. ``module.__spec__.loader = None`` would trigger a load from
         # trying to access module.__spec__.
-        loader_state = {}
-        loader_state['__dict__'] = module.__dict__.copy()
+        loader_state = {'__dict__': module.__dict__.copy()}
         loader_state['__class__'] = module.__class__
         module.__spec__.loader_state = loader_state
         module.__class__ = _LazyModule

@@ -91,9 +91,7 @@ class Hashable(metaclass=ABCMeta):
 
     @classmethod
     def __subclasshook__(cls, C):
-        if cls is Hashable:
-            return _check_methods(C, "__hash__")
-        return NotImplemented
+        return _check_methods(C, "__hash__") if cls is Hashable else NotImplemented
 
 
 class Awaitable(metaclass=ABCMeta):
@@ -106,9 +104,7 @@ class Awaitable(metaclass=ABCMeta):
 
     @classmethod
     def __subclasshook__(cls, C):
-        if cls is Awaitable:
-            return _check_methods(C, "__await__")
-        return NotImplemented
+        return _check_methods(C, "__await__") if cls is Awaitable else NotImplemented
 
 
 class Coroutine(Awaitable):
@@ -251,9 +247,7 @@ class Iterable(metaclass=ABCMeta):
 
     @classmethod
     def __subclasshook__(cls, C):
-        if cls is Iterable:
-            return _check_methods(C, "__iter__")
-        return NotImplemented
+        return _check_methods(C, "__iter__") if cls is Iterable else NotImplemented
 
 
 class Iterator(Iterable):
@@ -366,9 +360,7 @@ class Sized(metaclass=ABCMeta):
 
     @classmethod
     def __subclasshook__(cls, C):
-        if cls is Sized:
-            return _check_methods(C, "__len__")
-        return NotImplemented
+        return _check_methods(C, "__len__") if cls is Sized else NotImplemented
 
 
 class Container(metaclass=ABCMeta):
@@ -405,9 +397,7 @@ class Callable(metaclass=ABCMeta):
 
     @classmethod
     def __subclasshook__(cls, C):
-        if cls is Callable:
-            return _check_methods(C, "__call__")
-        return NotImplemented
+        return _check_methods(C, "__call__") if cls is Callable else NotImplemented
 
 
 ### SETS ###
@@ -432,35 +422,35 @@ class Set(Collection):
             return NotImplemented
         if len(self) > len(other):
             return False
-        for elem in self:
-            if elem not in other:
-                return False
-        return True
+        return all(elem in other for elem in self)
 
     def __lt__(self, other):
-        if not isinstance(other, Set):
-            return NotImplemented
-        return len(self) < len(other) and self.__le__(other)
+        return (
+            len(self) < len(other) and self.__le__(other)
+            if isinstance(other, Set)
+            else NotImplemented
+        )
 
     def __gt__(self, other):
-        if not isinstance(other, Set):
-            return NotImplemented
-        return len(self) > len(other) and self.__ge__(other)
+        return (
+            len(self) > len(other) and self.__ge__(other)
+            if isinstance(other, Set)
+            else NotImplemented
+        )
 
     def __ge__(self, other):
         if not isinstance(other, Set):
             return NotImplemented
         if len(self) < len(other):
             return False
-        for elem in other:
-            if elem not in self:
-                return False
-        return True
+        return all(elem in self for elem in other)
 
     def __eq__(self, other):
-        if not isinstance(other, Set):
-            return NotImplemented
-        return len(self) == len(other) and self.__le__(other)
+        return (
+            len(self) == len(other) and self.__le__(other)
+            if isinstance(other, Set)
+            else NotImplemented
+        )
 
     @classmethod
     def _from_iterable(cls, it):
@@ -472,18 +462,17 @@ class Set(Collection):
         return cls(it)
 
     def __and__(self, other):
-        if not isinstance(other, Iterable):
-            return NotImplemented
-        return self._from_iterable(value for value in other if value in self)
+        return (
+            self._from_iterable(value for value in other if value in self)
+            if isinstance(other, Iterable)
+            else NotImplemented
+        )
 
     __rand__ = __and__
 
     def isdisjoint(self, other):
         'Return True if two sets have a null intersection.'
-        for value in other:
-            if value in self:
-                return False
-        return True
+        return all(value not in self for value in other)
 
     def __or__(self, other):
         if not isinstance(other, Iterable):
@@ -682,9 +671,11 @@ class Mapping(Collection):
         return ValuesView(self)
 
     def __eq__(self, other):
-        if not isinstance(other, Mapping):
-            return NotImplemented
-        return dict(self.items()) == dict(other.items())
+        return (
+            dict(self.items()) == dict(other.items())
+            if isinstance(other, Mapping)
+            else NotImplemented
+        )
 
     __reversed__ = None
 
@@ -710,7 +701,7 @@ class KeysView(MappingView, Set):
     __slots__ = ()
 
     @classmethod
-    def _from_iterable(self, it):
+    def _from_iterable(cls, it):
         return set(it)
 
     def __contains__(self, key):
@@ -727,7 +718,7 @@ class ItemsView(MappingView, Set):
     __slots__ = ()
 
     @classmethod
-    def _from_iterable(self, it):
+    def _from_iterable(cls, it):
         return set(it)
 
     def __contains__(self, item):
@@ -871,17 +862,13 @@ class Sequence(Reversible, Collection):
         i = 0
         try:
             while True:
-                v = self[i]
-                yield v
+                yield self[i]
                 i += 1
         except IndexError:
             return
 
     def __contains__(self, value):
-        for v in self:
-            if v is value or v == value:
-                return True
-        return False
+        return any(v is value or v == value for v in self)
 
     def __reversed__(self):
         for i in reversed(range(len(self))):
@@ -912,7 +899,7 @@ class Sequence(Reversible, Collection):
 
     def count(self, value):
         'S.count(value) -> integer -- return number of occurrences of value'
-        return sum(1 for v in self if v is value or v == value)
+        return sum(v is value or v == value for v in self)
 
 Sequence.register(tuple)
 Sequence.register(str)

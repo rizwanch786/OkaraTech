@@ -731,7 +731,7 @@ def _createenviron():
         # Where Env Var Names Must Be UPPERCASE
         def check_str(value):
             if not isinstance(value, str):
-                raise TypeError("str expected, not %s" % type(value).__name__)
+                raise TypeError(f"str expected, not {type(value).__name__}")
             return value
         encode = check_str
         decode = str
@@ -745,7 +745,7 @@ def _createenviron():
         encoding = sys.getfilesystemencoding()
         def encode(value):
             if not isinstance(value, str):
-                raise TypeError("str expected, not %s" % type(value).__name__)
+                raise TypeError(f"str expected, not {type(value).__name__}")
             return value.encode(encoding, 'surrogateescape')
         def decode(value):
             return value.decode(encoding, 'surrogateescape')
@@ -773,7 +773,7 @@ __all__.extend(("getenv", "supports_bytes_environ"))
 if supports_bytes_environ:
     def _check_bytes(value):
         if not isinstance(value, bytes):
-            raise TypeError("bytes expected, not %s" % type(value).__name__)
+            raise TypeError(f"bytes expected, not {type(value).__name__}")
         return value
 
     # bytes environ
@@ -971,7 +971,7 @@ otherwise return -SIG, where SIG is the signal that killed it. """
 # Supply os.popen()
 def popen(cmd, mode="r", buffering=-1):
     if not isinstance(cmd, str):
-        raise TypeError("invalid cmd type (%s, expected string)" % type(cmd))
+        raise TypeError(f"invalid cmd type ({type(cmd)}, expected string)")
     if mode not in ("r", "w"):
         raise ValueError("invalid mode %r" % mode)
     if buffering == 0 or buffering is None:
@@ -1000,10 +1000,7 @@ class _wrap_close:
         returncode = self._proc.wait()
         if returncode == 0:
             return None
-        if name == 'nt':
-            return returncode
-        else:
-            return returncode << 8  # Shift left to match old behavior
+        return returncode if name == 'nt' else returncode << 8
     def __enter__(self):
         return self
     def __exit__(self, *args):
@@ -1016,7 +1013,7 @@ class _wrap_close:
 # Supply os.fdopen()
 def fdopen(fd, *args, **kwargs):
     if not isinstance(fd, int):
-        raise TypeError("invalid fd type (%s, expected integer)" % type(fd))
+        raise TypeError(f"invalid fd type ({type(fd)}, expected integer)")
     import io
     return io.open(fd, *args, **kwargs)
 
@@ -1048,9 +1045,9 @@ def _fspath(path):
     if isinstance(path_repr, (str, bytes)):
         return path_repr
     else:
-        raise TypeError("expected {}.__fspath__() to return str or bytes, "
-                        "not {}".format(path_type.__name__,
-                                        type(path_repr).__name__))
+        raise TypeError(
+            f"expected {path_type.__name__}.__fspath__() to return str or bytes, not {type(path_repr).__name__}"
+        )
 
 # If there is no C implementation, make the pure Python version the
 # implementation as transparently as possible.

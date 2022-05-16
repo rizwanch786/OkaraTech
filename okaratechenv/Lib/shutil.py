@@ -249,7 +249,7 @@ def copyfile(src, dst, *, follow_symlinks=True):
             # XXX What about other special files? (sockets, devices...)
             if stat.S_ISFIFO(st.st_mode):
                 fn = fn.path if isinstance(fn, os.DirEntry) else fn
-                raise SpecialFileError("`%s` is a named pipe" % fn)
+                raise SpecialFileError(f"`{fn}` is a named pipe")
             if _WINDOWS and i == 0:
                 file_size = st.st_size
 
@@ -441,11 +441,7 @@ def ignore_patterns(*patterns):
 
 def _copytree(entries, src, dst, symlinks, ignore, copy_function,
               ignore_dangling_symlinks, dirs_exist_ok=False):
-    if ignore is not None:
-        ignored_names = ignore(src, set(os.listdir(src)))
-    else:
-        ignored_names = set()
-
+    ignored_names = set() if ignore is None else ignore(src, set(os.listdir(src)))
     os.makedirs(dst, exist_ok=dirs_exist_ok)
     errors = []
     use_srcentry = copy_function is copy2 or copy_function is copy
@@ -901,7 +897,7 @@ def _make_zipfile(base_name, base_dir, verbose=0, dry_run=0, logger=None):
     """
     import zipfile  # late import for breaking circular dependency
 
-    zip_filename = base_name + ".zip"
+    zip_filename = f"{base_name}.zip"
     archive_dir = os.path.dirname(base_name)
 
     if archive_dir and not os.path.exists(archive_dir):
@@ -976,7 +972,7 @@ def register_archive_format(name, function, extra_args=None, description=''):
     if extra_args is None:
         extra_args = []
     if not callable(function):
-        raise TypeError('The %s object is not callable' % function)
+        raise TypeError(f'The {function} object is not callable')
     if not isinstance(extra_args, (tuple, list)):
         raise TypeError('extra_args needs to be a sequence')
     for element in extra_args:
@@ -1111,7 +1107,7 @@ def _unpack_zipfile(filename, extract_dir):
     import zipfile  # late import for breaking circular dependency
 
     if not zipfile.is_zipfile(filename):
-        raise ReadError("%s is not a zip file" % filename)
+        raise ReadError(f"{filename} is not a zip file")
 
     zip = zipfile.ZipFile(filename)
     try:
@@ -1146,8 +1142,7 @@ def _unpack_tarfile(filename, extract_dir):
     try:
         tarobj = tarfile.open(filename)
     except tarfile.TarError:
-        raise ReadError(
-            "%s is not a compressed or uncompressed tar file" % filename)
+        raise ReadError(f"{filename} is not a compressed or uncompressed tar file")
     try:
         tarobj.extractall(extract_dir)
     finally:
@@ -1322,10 +1317,10 @@ def get_terminal_size(fallback=(80, 24)):
             # stdout is None, closed, detached, or not a terminal, or
             # os.get_terminal_size() is unsupported
             size = os.terminal_size(fallback)
-        if columns <= 0:
-            columns = size.columns
-        if lines <= 0:
-            lines = size.lines
+    if columns <= 0:
+        columns = size.columns
+    if lines <= 0:
+        lines = size.lines
 
     return os.terminal_size((columns, lines))
 
@@ -1352,23 +1347,20 @@ def which(cmd, mode=os.F_OK | os.X_OK, path=None):
     # than referring to PATH directories. This includes checking relative to the
     # current directory, e.g. ./script
     if os.path.dirname(cmd):
-        if _access_check(cmd, mode):
-            return cmd
-        return None
-
+        return cmd if _access_check(cmd, mode) else None
     use_bytes = isinstance(cmd, bytes)
 
     if path is None:
         path = os.environ.get("PATH", None)
-        if path is None:
-            try:
-                path = os.confstr("CS_PATH")
-            except (AttributeError, ValueError):
-                # os.confstr() or CS_PATH is not available
-                path = os.defpath
-        # bpo-35755: Don't use os.defpath if the PATH environment variable is
-        # set to an empty string
+            # bpo-35755: Don't use os.defpath if the PATH environment variable is
+            # set to an empty string
 
+    if path is None:
+        try:
+            path = os.confstr("CS_PATH")
+        except (AttributeError, ValueError):
+            # os.confstr() or CS_PATH is not available
+            path = os.defpath
     # PATH='' doesn't match, whereas PATH=':' looks in the current directory
     if not path:
         return None
@@ -1408,7 +1400,7 @@ def which(cmd, mode=os.F_OK | os.X_OK, path=None):
     seen = set()
     for dir in path:
         normdir = os.path.normcase(dir)
-        if not normdir in seen:
+        if normdir not in seen:
             seen.add(normdir)
             for thefile in files:
                 name = os.path.join(dir, thefile)

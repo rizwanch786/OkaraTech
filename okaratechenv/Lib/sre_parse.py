@@ -271,12 +271,11 @@ class Tokenizer:
             self.__next()
             if c is None:
                 if not result:
-                    raise self.error("missing " + name)
-                raise self.error("missing %s, unterminated name" % terminator,
-                                 len(result))
+                    raise self.error(f"missing {name}")
+                raise self.error(f"missing {terminator}, unterminated name", len(result))
             if c == terminator:
                 if not result:
-                    raise self.error("missing " + name, 1)
+                    raise self.error(f"missing {name}", 1)
                 break
             result += c
         return result
@@ -306,19 +305,19 @@ def _class_escape(source, escape):
             # hexadecimal escape (exactly two digits)
             escape += source.getwhile(2, HEXDIGITS)
             if len(escape) != 4:
-                raise source.error("incomplete escape %s" % escape, len(escape))
+                raise source.error(f"incomplete escape {escape}", len(escape))
             return LITERAL, int(escape[2:], 16)
         elif c == "u" and source.istext:
             # unicode escape (exactly four digits)
             escape += source.getwhile(4, HEXDIGITS)
             if len(escape) != 6:
-                raise source.error("incomplete escape %s" % escape, len(escape))
+                raise source.error(f"incomplete escape {escape}", len(escape))
             return LITERAL, int(escape[2:], 16)
         elif c == "U" and source.istext:
             # unicode escape (exactly eight digits)
             escape += source.getwhile(8, HEXDIGITS)
             if len(escape) != 10:
-                raise source.error("incomplete escape %s" % escape, len(escape))
+                raise source.error(f"incomplete escape {escape}", len(escape))
             c = int(escape[2:], 16)
             chr(c) # raise ValueError for invalid code
             return LITERAL, c
@@ -346,19 +345,16 @@ def _class_escape(source, escape):
             raise ValueError
         if len(escape) == 2:
             if c in ASCIILETTERS:
-                raise source.error('bad escape %s' % escape, len(escape))
+                raise source.error(f'bad escape {escape}', len(escape))
             return LITERAL, ord(escape[1])
     except ValueError:
         pass
-    raise source.error("bad escape %s" % escape, len(escape))
+    raise source.error(f"bad escape {escape}", len(escape))
 
 def _escape(source, escape, state):
-    # handle escape code in expression
-    code = CATEGORIES.get(escape)
-    if code:
+    if code := CATEGORIES.get(escape):
         return code
-    code = ESCAPES.get(escape)
-    if code:
+    if code := ESCAPES.get(escape):
         return code
     try:
         c = escape[1:2]
@@ -366,19 +362,19 @@ def _escape(source, escape, state):
             # hexadecimal escape
             escape += source.getwhile(2, HEXDIGITS)
             if len(escape) != 4:
-                raise source.error("incomplete escape %s" % escape, len(escape))
+                raise source.error(f"incomplete escape {escape}", len(escape))
             return LITERAL, int(escape[2:], 16)
         elif c == "u" and source.istext:
             # unicode escape (exactly four digits)
             escape += source.getwhile(4, HEXDIGITS)
             if len(escape) != 6:
-                raise source.error("incomplete escape %s" % escape, len(escape))
+                raise source.error(f"incomplete escape {escape}", len(escape))
             return LITERAL, int(escape[2:], 16)
         elif c == "U" and source.istext:
             # unicode escape (exactly eight digits)
             escape += source.getwhile(8, HEXDIGITS)
             if len(escape) != 10:
-                raise source.error("incomplete escape %s" % escape, len(escape))
+                raise source.error(f"incomplete escape {escape}", len(escape))
             c = int(escape[2:], 16)
             chr(c) # raise ValueError for invalid code
             return LITERAL, c
@@ -423,11 +419,11 @@ def _escape(source, escape, state):
             raise source.error("invalid group reference %d" % group, len(escape) - 1)
         if len(escape) == 2:
             if c in ASCIILETTERS:
-                raise source.error("bad escape %s" % escape, len(escape))
+                raise source.error(f"bad escape {escape}", len(escape))
             return LITERAL, ord(escape[1])
     except ValueError:
         pass
-    raise source.error("bad escape %s" % escape, len(escape))
+    raise source.error(f"bad escape {escape}", len(escape))
 
 def _uniq(items):
     return list(dict.fromkeys(items))

@@ -56,8 +56,8 @@ class Repr:
         if ' ' in typename:
             parts = typename.split()
             typename = '_'.join(parts)
-        if hasattr(self, 'repr_' + typename):
-            return getattr(self, 'repr_' + typename)(x, level)
+        if hasattr(self, f'repr_{typename}'):
+            return getattr(self, f'repr_{typename}')(x, level)
         else:
             return self.repr_instance(x, level)
 
@@ -72,7 +72,7 @@ class Repr:
             if n > maxiter:  pieces.append('...')
             s = ', '.join(pieces)
             if n == 1 and trail:  right = trail + right
-        return '%s%s%s' % (left, s, right)
+        return f'{left}{s}{right}'
 
     def repr_tuple(self, x, level):
         return self._repr_iterable(x, level, '(', ')', self.maxtuple, ',')
@@ -112,7 +112,7 @@ class Repr:
         for key in islice(_possibly_sorted(x), self.maxdict):
             keyrepr = repr1(key, newlevel)
             valrepr = repr1(x[key], newlevel)
-            pieces.append('%s: %s' % (keyrepr, valrepr))
+            pieces.append(f'{keyrepr}: {valrepr}')
         if n > self.maxdict: pieces.append('...')
         s = ', '.join(pieces)
         return '{%s}' % (s,)
@@ -123,7 +123,7 @@ class Repr:
             i = max(0, (self.maxstring-3)//2)
             j = max(0, self.maxstring-3-i)
             s = builtins.repr(x[:i] + x[len(x)-j:])
-            s = s[:i] + '...' + s[len(s)-j:]
+            s = f'{s[:i]}...{s[len(s)-j:]}'
         return s
 
     def repr_int(self, x, level):
@@ -131,7 +131,7 @@ class Repr:
         if len(s) > self.maxlong:
             i = max(0, (self.maxlong-3)//2)
             j = max(0, self.maxlong-3-i)
-            s = s[:i] + '...' + s[len(s)-j:]
+            s = f'{s[:i]}...{s[len(s)-j:]}'
         return s
 
     def repr_instance(self, x, level):
@@ -144,7 +144,7 @@ class Repr:
         if len(s) > self.maxother:
             i = max(0, (self.maxother-3)//2)
             j = max(0, self.maxother-3-i)
-            s = s[:i] + '...' + s[len(s)-j:]
+            s = f'{s[:i]}...{s[len(s)-j:]}'
         return s
 
 

@@ -85,13 +85,13 @@ def find_loader(name, path=None):
     try:
         loader = sys.modules[name].__loader__
         if loader is None:
-            raise ValueError('{}.__loader__ is None'.format(name))
+            raise ValueError(f'{name}.__loader__ is None')
         else:
             return loader
     except KeyError:
         pass
     except AttributeError:
-        raise ValueError('{}.__loader__ is not set'.format(name)) from None
+        raise ValueError(f'{name}.__loader__ is not set') from None
 
     spec = _bootstrap._find_spec(name, path)
     # We won't worry about malformed specs (missing attributes).
@@ -99,8 +99,7 @@ def find_loader(name, path=None):
         return None
     if spec.loader is None:
         if spec.submodule_search_locations is None:
-            raise ImportError('spec for {} missing loader'.format(name),
-                              name=name)
+            raise ImportError(f'spec for {name} missing loader', name=name)
         raise ImportError('namespace packages do not have loaders',
                           name=name)
     return spec.loader
@@ -150,8 +149,7 @@ def reload(module):
         return _RELOADING[name]
     _RELOADING[name] = module
     try:
-        parent_name = name.rpartition('.')[0]
-        if parent_name:
+        if parent_name := name.rpartition('.')[0]:
             try:
                 parent = sys.modules[parent_name]
             except KeyError:
